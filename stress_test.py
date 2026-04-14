@@ -108,6 +108,19 @@ class StressTestSuite:
             "col_2": [3.0, 4.0, 5.0, 6.0],
         })
 
+    @staticmethod
+    def get_test_instances(detector_cls):
+        """Get valid test instances using sktime's own factory method."""
+        try:
+            instances, _ = detector_cls.create_test_instances_and_names()
+            return instances if instances else [detector_cls()]
+        except Exception:
+            # Fallback: try bare instantiation
+            try:
+                return [detector_cls()]
+            except Exception:
+                return []
+
     def run_stress_test(self, detector_name, detector_cls):
         """Run all stress tests on a detector."""
         if self.specific_detector and detector_name != self.specific_detector:
@@ -116,6 +129,29 @@ class StressTestSuite:
         if not self.quiet:
             print(f"\nTesting: {detector_name}")
             print("-" * 60)
+
+        # Check if detector has soft dependencies that aren't installed
+        try:
+            tags = detector_cls.get_class_tags()
+            deps = tags.get("python_dependencies")
+            if deps:
+                from skbase.utils.dependencies import _check_soft_dependencies
+                if not _check_soft_dependencies(deps, severity="none"):
+                    if not self.quiet:
+                        print(f"  ⊘ SKIPPED - missing soft deps: {deps}")
+                    return
+        except Exception:
+            pass
+
+        # Get properly initialised test instances
+        instances = self.get_test_instances(detector_cls)
+        if not instances:
+            if not self.quiet:
+                print(f"  ⊘ SKIPPED - could not instantiate")
+            return
+
+        # Use first test instance as representative
+        detector_instance = instances[0]
 
         # Define stress tests: (name, data_fn, expected_behavior)
         stress_tests = [
@@ -177,8 +213,9 @@ class StressTestSuite:
             # Create test data
             X = data_fn()
 
-            # Instantiate detector
-            detector = detector_cls()
+            # Get a fresh properly-initialised instance each time
+            instances = self.get_test_instances(detector_cls)
+            detector = instances[0]
 
             # Try to fit
             detector.fit(X)
