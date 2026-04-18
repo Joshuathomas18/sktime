@@ -31,7 +31,7 @@ class FCNRegressor(BaseDeepRegressor):
         whether to output extra information
     loss : string, default="mean_squared_error"
         fit parameter for the keras model
-    metrics : list of strings, default=["accuracy"],
+    metrics : list of strings, default=["mean_squared_error"],
     activation : string or a tf callable, default="sigmoid"
         Activation function used in the output layer.
         List of available activation functions:
@@ -131,7 +131,7 @@ class FCNRegressor(BaseDeepRegressor):
         tf.random.set_seed(self.random_state)
 
         if self.metrics is None:
-            metrics = ["accuracy"]
+            metrics = ["mean_squared_error"]
         else:
             metrics = self.metrics
         input_layer, output_layer = self._network.build_network(input_shape, **kwargs)
